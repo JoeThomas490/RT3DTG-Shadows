@@ -55,7 +55,7 @@ float4 GetLightingColour(float3 worldPos, float3 N)
 
 // Uncomment this line to have the lighting calculation done per pixel, rather
 // than per vertex.
-//#define PER_PIXEL_LIGHTING
+#define PER_PIXEL_LIGHTING
 
 cbuffer DrawHeightMap
 {
@@ -77,7 +77,8 @@ struct PSInput
 {
 	float4 pos:SV_Position;
 	float4 colour:COLOUR0;
-// Something missing here...
+	// Something missing here...
+	float4 pos_ws:POSITION;
 
 };
 
@@ -96,6 +97,7 @@ void VSMain(const VSInput input, out PSInput output)
 	float3 worldNormal = mul(input.normal, g_InvXposeW);
 
 	output.colour = input.colour * GetLightingColour(input.pos, normalize(worldNormal));
+	output.pos_ws = mul(input.pos, g_W);
 }
 
 // This gets called for every pixel which needs to be drawn
@@ -104,12 +106,19 @@ void PSMain(const PSInput input, out PSOutput output)
 	output.colour = input.colour;
 
 	// Transform the pixel into light space
+	float4 lightSpacePos = mul(input.pos_ws, g_shadowMatrix);
 
 	// Perform perspective correction
+	lightSpacePos.xyz /= lightSpacePos.w;
 
 	// Scale and offset uvs into 0-1 range.
+	lightSpacePos.xy = (lightSpacePos.xy + 1) / 2;
+	lightSpacePos.y = 1 - lightSpacePos.y;
 
 	// Sample render target to see if this pixel is in shadow
+	float4 sampleCol = g_shadowTexture.Sample(g_shadowSampler, lightSpacePos.xy);
 
 	// If it is then alpha blend between final colour and shadow colour
+	output.colour = lerp(input.colour, g_shadowColour, sampleCol.r);
+
 }
