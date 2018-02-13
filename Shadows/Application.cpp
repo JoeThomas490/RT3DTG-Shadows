@@ -283,15 +283,41 @@ void Application::RenderShadow()
 	m_pD3DDeviceContext->RSSetViewports(1, &viewport);
 
 	XMFLOAT4 vTemp = m_pAeroplane->GetPosition();
+
 	XMVECTOR vPlanePos = XMLoadFloat4(&vTemp);
+	XMVECTOR vCameraPos = XMLoadFloat3(&m_shadowCastingLightPosition);
+
+	XMVECTOR vPlaneLight = (vPlanePos - vCameraPos);
+	XMVECTOR vPlaneLightNormalized = XMVector3Normalize(vPlaneLight);
+
+	XMVECTOR vFarPlane = vPlanePos + (vPlaneLightNormalized * AEROPLANE_RADIUS);
+	XMVECTOR vNearPlane = vPlanePos + ((vPlaneLightNormalized * -1) * AEROPLANE_RADIUS);
+
+	XMVECTOR vLightPosition = XMLoadFloat3(&m_shadowCastingLightPosition);
+
+	XMVECTOR vFarDistance = XMVector3Length((vFarPlane - vLightPosition));
+	XMVECTOR vNearDistance = XMVector3Length((vNearPlane - vLightPosition));
+
+	XMFLOAT3 farDist, nearDist;
+
+	XMStoreFloat3(&farDist, vFarDistance);
+	XMStoreFloat3(&nearDist, vNearDistance);
+
+	//Calculate FOV
+	float adjacent = nearDist.x;
+	float opposite = RENDER_TARGET_HEIGHT;
+
+	float fovy = atan2(opposite, adjacent);
+
+
 
 	//*************************************************************************
 	// Your code to adjust the perspective projection of the light goes here
 	// You will need to calculate fovy, zn and zf instead of using these default values:
-	float fovy = 0.8f;
-	float zn = 1.0f;
-	float zf = 1000.0f;
-	float aspect = 1.2f;
+	//float fovy = 0.8f;
+	float zn = nearDist.x;
+	float zf = farDist.x;
+	float aspect = RENDER_TARGET_WIDTH / RENDER_TARGET_HEIGHT;
 	// You will find the following constants (defined above) useful:
 	// RENDER_TARGET_WIDTH, RENDER_TARGET_HEIGHT, AEROPLANE_RADIUS
 	//*************************************************************************
